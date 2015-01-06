@@ -75,11 +75,14 @@ trait DBSession extends LogSupport with LoanPattern {
    * @return statement executor
    */
   private def createStatementExecutor(conn: Connection, template: String, params: Seq[Any],
-    returnGeneratedKeys: Boolean = false): StatementExecutor = {
+    returnGeneratedKeys: Boolean = false, keyToReturn: Option[String] = None): StatementExecutor = {
     try {
       val statement = {
         if (returnGeneratedKeys) {
-          conn.prepareStatement(template, Statement.RETURN_GENERATED_KEYS)
+          keyToReturn match {
+            case Some(key) => conn.prepareStatement(template, Seq(key).toArray)
+            case None => conn.prepareStatement(template, Statement.RETURN_GENERATED_KEYS)
+          }
         } else {
           conn.prepareStatement(template)
         }
@@ -357,7 +360,7 @@ trait DBSession extends LogSupport with LoanPattern {
   def updateWithFilters(before: (PreparedStatement) => Unit,
     after: (PreparedStatement) => Unit,
     template: String,
-    params: Any*): Int = updateWithFilters(false, before, after, template, params: _*)
+    params: Any*): Int = updateWithFilters(false, before, after, template, None, params: _*)
 
   /**
    * Executes java.sql.PreparedStatement#executeUpdate().
@@ -373,13 +376,15 @@ trait DBSession extends LogSupport with LoanPattern {
     before: (PreparedStatement) => Unit,
     after: (PreparedStatement) => Unit,
     template: String,
+    keyToReturn: Option[String],
     params: Any*): Int = {
     ensureNotReadOnlySession(template)
     using(createStatementExecutor(
       conn = conn,
       template = template,
       params = params,
-      returnGeneratedKeys = returnGeneratedKeys)) {
+      returnGeneratedKeys = returnGeneratedKeys,
+      keyToReturn = keyToReturn)) {
       executor =>
         before(executor.underlying)
         val count = executor.executeUpdate()
@@ -414,7 +419,14 @@ trait DBSession extends LogSupport with LoanPattern {
       while (rs.next()) {
         generatedKeyFound = true
         generatedKey = key match {
-          case name: String => rs.getLong(name)
+          case name: String =>
+            try {
+              rs.getLong(name)
+            } catch {
+              case e: Exception =>
+                log.warn("Failed to get generated key value via index " + name + ". Going to retrieve it via index 1.")
+                rs.getLong(1)
+            }
           case index: Int => try {
             rs.getLong(index)
           } catch {
@@ -426,7 +438,10 @@ trait DBSession extends LogSupport with LoanPattern {
         }
       }
     }
-    updateWithFilters(true, before, after, template, params: _*)
+    key match {
+      case k: String => updateWithFilters(true, before, after, template, Some(k), params: _*)
+      case _ => updateWithFilters(true, before, after, template, None, params: _*)
+    }
     if (!generatedKeyFound) {
       throw new IllegalStateException(ErrorMessage.FAILED_TO_RETRIEVE_GENERATED_KEY + " (template:" + template + ")")
     }

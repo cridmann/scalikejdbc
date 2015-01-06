@@ -317,9 +317,9 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
               id = if (driverClassName == "org.h2.Driver" || driverClassName == "com.mysql.jdbc.Driver") rs.getLong(1) else rs.getLong("id")
             }
           }
-          session.updateWithFilters(true, before, after, "insert into dbsessionspec_genkey (name) values (?)", "xxx")
+          session.updateWithFilters(true, before, after, "insert into dbsessionspec_genkey (name) values (?)", None, "xxx")
           id should be <= 1L
-          session.updateWithFilters(true, before, after, "insert into dbsessionspec_genkey (name) values (?)", "xxx")
+          session.updateWithFilters(true, before, after, "insert into dbsessionspec_genkey (name) values (?)", None, "xxx")
           id should be <= 2L
         } finally {
           SQL("drop table dbsessionspec_genkey").execute.apply()
