@@ -72,7 +72,7 @@ import scala.concurrent.{ ExecutionContext, Future }
  *   }
  * }}}
  */
-case class DB(conn: Connection) extends DBConnection
+case class DB(conn: Connection, poolSettings: ConnectionPoolSettings) extends DBConnection
 
 /**
  * Basic Database Accessor
@@ -181,7 +181,7 @@ object DB extends LoanPattern {
    */
   def readOnly[A](execution: DBSession => A)(implicit context: CPContext = NoCPContext): A = {
     using(connectionPool(context).borrow()) { conn =>
-      DB(conn).autoClose(false).readOnly(execution)
+      DB(conn, connectionPool(context).settings).autoClose(false).readOnly(execution)
     }
   }
 
@@ -196,7 +196,7 @@ object DB extends LoanPattern {
    */
   def readOnlyWithConnection[A](execution: Connection => A)(implicit context: CPContext = NoCPContext): A = {
     using(connectionPool(context).borrow()) { conn =>
-      DB(conn).autoClose(false).readOnlyWithConnection(execution)
+      DB(conn, connectionPool(context).settings).autoClose(false).readOnlyWithConnection(execution)
     }
   }
 
@@ -207,7 +207,7 @@ object DB extends LoanPattern {
    * @return session
    */
   def readOnlySession()(implicit context: CPContext = NoCPContext): DBSession = {
-    DB(connectionPool(context).borrow()).readOnlySession()
+    DB(connectionPool(context).borrow(), connectionPool(context).settings).readOnlySession()
   }
 
   /**
@@ -220,7 +220,7 @@ object DB extends LoanPattern {
    */
   def autoCommit[A](execution: DBSession => A)(implicit context: CPContext = NoCPContext): A = {
     using(connectionPool(context).borrow()) { conn =>
-      DB(conn).autoClose(false).autoCommit(execution)
+      DB(conn, connectionPool(context).settings).autoClose(false).autoCommit(execution)
     }
   }
 
@@ -235,7 +235,7 @@ object DB extends LoanPattern {
    */
   def autoCommitWithConnection[A](execution: Connection => A)(implicit context: CPContext = NoCPContext): A = {
     using(connectionPool(context).borrow()) { conn =>
-      DB(conn).autoClose(false).autoCommitWithConnection(execution)
+      DB(conn, connectionPool(context).settings).autoClose(false).autoCommitWithConnection(execution)
     }
   }
 
@@ -246,7 +246,7 @@ object DB extends LoanPattern {
    * @return session
    */
   def autoCommitSession()(implicit context: CPContext = NoCPContext): DBSession = {
-    DB(connectionPool(context).borrow()).autoCommitSession()
+    DB(connectionPool(context).borrow(), connectionPool(context).settings).autoCommitSession()
   }
 
   /**
@@ -259,7 +259,7 @@ object DB extends LoanPattern {
    */
   def localTx[A](execution: DBSession => A)(
     implicit context: CPContext = NoCPContext, boundary: TxBoundary[A] = defaultTxBoundary[A]): A = {
-    DB(connectionPool(context).borrow()).autoClose(true).localTx(execution)
+    DB(connectionPool(context).borrow(), connectionPool(context).settings).autoClose(true).localTx(execution)
   }
 
   /**
@@ -288,7 +288,7 @@ object DB extends LoanPattern {
   def localTxWithConnection[A](execution: Connection => A)(
     implicit context: CPContext = NoCPContext, boundary: TxBoundary[A] = defaultTxBoundary[A]): A = {
     using(connectionPool(context).borrow()) { conn =>
-      DB(conn).autoClose(false).localTxWithConnection(execution)
+      DB(conn, connectionPool(context).settings).autoClose(false).localTxWithConnection(execution)
     }
   }
 
@@ -335,7 +335,7 @@ object DB extends LoanPattern {
    * @return table information
    */
   def getTableNames(tableNamePattern: String)(implicit context: CPContext = NoCPContext): List[String] = {
-    DB(connectionPool(context).borrow()).getTableNames(tableNamePattern)
+    DB(connectionPool(context).borrow(), connectionPool(context).settings).getTableNames(tableNamePattern)
   }
 
   /**
@@ -345,7 +345,7 @@ object DB extends LoanPattern {
    * @return table information
    */
   def getAllTableNames()(implicit context: CPContext = NoCPContext): List[String] = {
-    DB(connectionPool(context).borrow()).getTableNames("%")
+    DB(connectionPool(context).borrow(), connectionPool(context).settings).getTableNames("%")
   }
 
   /**
@@ -356,12 +356,13 @@ object DB extends LoanPattern {
    * @return table information
    */
   def getTable(table: String)(implicit context: CPContext = NoCPContext): Option[Table] = {
-    DB(connectionPool(context).borrow()).getTable(table)
+    DB(connectionPool(context).borrow(), connectionPool(context).settings).getTable(table)
   }
 
   def getColumnNames(table: String)(implicit context: CPContext = NoCPContext): List[String] = {
     if (table != null) {
-      DB(connectionPool(context).borrow()).getColumnNames(table)
+      val pool = connectionPool(context)
+      DB(pool.borrow(), pool.settings).getColumnNames(table)
     } else {
       Nil
     }
@@ -375,7 +376,8 @@ object DB extends LoanPattern {
    * @return table name list
    */
   def showTables(tableNamePattern: String = "%", tableTypes: Array[String] = Array("TABLE", "VIEW"))(implicit context: CPContext = NoCPContext): String = {
-    DB(connectionPool(context).borrow()).showTables(tableNamePattern, tableTypes)
+    val pool = connectionPool(context)
+    DB(pool.borrow(), pool.settings).showTables(tableNamePattern, tableTypes)
   }
 
   /**
@@ -386,7 +388,8 @@ object DB extends LoanPattern {
    * @return described information
    */
   def describe(table: String)(implicit context: CPContext = NoCPContext): String = {
-    DB(connectionPool(context).borrow()).describe(table)
+    val pool = connectionPool(context)
+    DB(pool.borrow(), pool.settings).describe(table)
   }
 
   /**
@@ -395,7 +398,7 @@ object DB extends LoanPattern {
    * @param conn connection
    * @return DB instance
    */
-  def connect(conn: Connection = ConnectionPool.borrow()): DB = DB(conn)
+  def connect(conn: Connection = ConnectionPool.borrow(), poolSettings: ConnectionPoolSettings = ConnectionPool().settings): DB = DB(conn, poolSettings)
 
   /**
    * Returns a DB instance by using an implicit Connection object.
@@ -403,6 +406,6 @@ object DB extends LoanPattern {
    * @param conn connection
    * @return  DB instance
    */
-  def connected(implicit conn: Connection) = DB(conn)
+  def connected(implicit conn: Connection, poolSettings: ConnectionPoolSettings) = DB(conn, poolSettings)
 
 }

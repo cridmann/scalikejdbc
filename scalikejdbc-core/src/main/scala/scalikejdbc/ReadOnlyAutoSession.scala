@@ -24,6 +24,7 @@ case object ReadOnlyAutoSession extends DBSession {
   override private[scalikejdbc] val conn: Connection = null
   val tx: Option[Tx] = None
   val isReadOnly: Boolean = true
+  val driverName: Option[String] = None
 
   override def fetchSize(fetchSize: Int): DBSession = unexpectedInvocation
   override def fetchSize(fetchSize: Option[Int]): DBSession = unexpectedInvocation
@@ -38,6 +39,7 @@ case class ReadOnlyNamedAutoSession(name: Any) extends DBSession {
   override private[scalikejdbc] val conn: Connection = null
   val tx: Option[Tx] = None
   val isReadOnly: Boolean = true
+  val driverName: Option[String] = None
 
   override def fetchSize(fetchSize: Int): DBSession = unexpectedInvocation
   override def fetchSize(fetchSize: Option[Int]): DBSession = unexpectedInvocation

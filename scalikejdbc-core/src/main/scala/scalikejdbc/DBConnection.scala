@@ -55,6 +55,12 @@ trait DBConnection extends LogSupport with LoanPattern {
   def conn: Connection
 
   /**
+   * Returns the [[ConnectionPoolSettings]] of the current JDBC [[Connection]]
+   * @return
+   */
+  def poolSettings: ConnectionPoolSettings
+
+  /**
    * Returns is the current transaction is active.
    * @return result
    */
@@ -188,7 +194,7 @@ trait DBConnection extends LogSupport with LoanPattern {
    */
   def readOnlySession(): DBSession = {
     setReadOnly(conn, true)
-    DBSession(conn, isReadOnly = true)
+    DBSession(conn, poolSettings.driverName, isReadOnly = true)
   }
 
   /**
@@ -219,7 +225,7 @@ trait DBConnection extends LogSupport with LoanPattern {
   def autoCommitSession(): DBSession = {
     setReadOnly(conn, false)
     setAutoCommit(conn, true)
-    DBSession(conn)
+    DBSession(conn, poolSettings.driverName)
   }
 
   /**
@@ -251,7 +257,7 @@ trait DBConnection extends LogSupport with LoanPattern {
     if (!GlobalSettings.jtaDataSourceCompatible && !tx.isActive) {
       throw new IllegalStateException(ErrorMessage.TRANSACTION_IS_NOT_ACTIVE)
     }
-    DBSession(conn, tx = Some(tx))
+    DBSession(conn, poolSettings.driverName, tx = Some(tx))
   }
 
   /**
@@ -304,7 +310,7 @@ trait DBConnection extends LogSupport with LoanPattern {
     begin(tx)
     val txResult = try {
       rollbackIfThrowable[A] {
-        val session = DBSession(conn, tx = Option(tx))
+        val session = DBSession(conn, poolSettings.driverName, tx = Option(tx))
         val result: A = execution(session)
         boundary.finishTx(result, tx)
       }

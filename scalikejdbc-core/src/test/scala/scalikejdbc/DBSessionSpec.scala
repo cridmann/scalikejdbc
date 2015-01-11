@@ -19,7 +19,7 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
   behavior of "DBSession"
 
   it should "be available" in {
-    using(DBSession(ConnectionPool.borrow())) {
+    using(DBSession(ConnectionPool.borrow(), ConnectionPool.get().settings.driverName)) {
       session =>
         session.conn should not be (null)
         session.connection should not be (null)
@@ -33,7 +33,7 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
       TestUtils.initialize(tableName)
 
       // new Connection for testing close
-      using(new DB(ConnectionPool.borrow())) {
+      using(new DB(ConnectionPool.borrow(), ConnectionPool.get().settings)) {
         db =>
           val session = db.autoCommitSession()
           val before = (stmt: PreparedStatement) => println("before")
@@ -63,7 +63,7 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
     ultimately(TestUtils.deleteTable(tableName)) {
       TestUtils.initialize(tableName)
 
-      using(new DB(ConnectionPool.borrow())) {
+      using(new DB(ConnectionPool.borrow(), ConnectionPool.get().settings)) {
         db =>
           val session = db.autoCommitSession()
           session.execute("insert into " + tableName + " values (?, ?)", 3, Option("Ben"))
@@ -87,7 +87,7 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
     ultimately(TestUtils.deleteTable(tableName)) {
       TestUtils.initialize(tableName)
 
-      using(new DB(ConnectionPool.borrow())) {
+      using(new DB(ConnectionPool.borrow(), ConnectionPool.get().settings)) {
         db =>
           val session = db.autoCommitSession()
           val singleResult = session.single("select id from " + tableName + " where id = ?", 1)(rs => rs.string("id"))
@@ -103,7 +103,7 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
     ultimately(TestUtils.deleteTable(tableName)) {
       TestUtils.initialize(tableName)
 
-      using(new DB(ConnectionPool.borrow())) {
+      using(new DB(ConnectionPool.borrow(), ConnectionPool.get().settings)) {
         db =>
           val session = db.autoCommitSession()
           val result = session.list("select id from " + tableName) {
@@ -119,7 +119,7 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
     ultimately(TestUtils.deleteTable(tableName)) {
       TestUtils.initialize(tableName)
 
-      using(new DB(ConnectionPool.borrow())) { db =>
+      using(new DB(ConnectionPool.borrow(), ConnectionPool.get().settings)) { db =>
         val session = db.autoCommitSession()
         try {
           val before = (stmt: PreparedStatement) => println("before")
@@ -143,7 +143,7 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
     ultimately(TestUtils.deleteTable(tableName)) {
       TestUtils.initialize(tableName)
 
-      using(new DB(ConnectionPool.borrow())) { db =>
+      using(new DB(ConnectionPool.borrow(), ConnectionPool.get().settings)) { db =>
         val session = db.autoCommitSession()
         try {
           val count = session.executeUpdate("update " + tableName + " set name = ? where id = ?", "foo", 1)
@@ -169,7 +169,7 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
     ultimately(TestUtils.deleteTable(tableName)) {
       TestUtils.initialize(tableName)
 
-      using(new DB(ConnectionPool.borrow())) { db =>
+      using(new DB(ConnectionPool.borrow(), ConnectionPool.get().settings)) { db =>
         db.begin()
         val session = db.withinTxSession()
         try {
@@ -191,7 +191,7 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
     ultimately(TestUtils.deleteTable(tableName)) {
       TestUtils.initialize(tableName)
 
-      using(new DB(ConnectionPool.borrow())) { db =>
+      using(new DB(ConnectionPool.borrow(), ConnectionPool.get().settings)) { db =>
         db.begin()
         val session = db.withinTxSession()
         try {
@@ -263,7 +263,7 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
     val tableName = tableNamePrefix + "_updateInWithinTx"
     ultimately(TestUtils.deleteTable(tableName)) {
       TestUtils.initialize(tableName)
-      using(new DB(ConnectionPool.borrow())) { db =>
+      using(new DB(ConnectionPool.borrow(), ConnectionPool.get().settings)) { db =>
         db.begin()
         val session = db.withinTxSession()
         TestUtils.initializeEmpRecords(session, tableName)
@@ -317,9 +317,9 @@ class DBSessionSpec extends FlatSpec with Matchers with BeforeAndAfter with Sett
               id = if (driverClassName == "org.h2.Driver" || driverClassName == "com.mysql.jdbc.Driver") rs.getLong(1) else rs.getLong("id")
             }
           }
-          session.updateWithFilters(true, before, after, "insert into dbsessionspec_genkey (name) values (?)", None, "xxx")
+          session.updateWithFilters(true, before, after, "insert into dbsessionspec_genkey (name) values (?)", None, false, "xxx")
           id should be <= 1L
-          session.updateWithFilters(true, before, after, "insert into dbsessionspec_genkey (name) values (?)", None, "xxx")
+          session.updateWithFilters(true, before, after, "insert into dbsessionspec_genkey (name) values (?)", None, false, "xxx")
           id should be <= 2L
         } finally {
           SQL("drop table dbsessionspec_genkey").execute.apply()

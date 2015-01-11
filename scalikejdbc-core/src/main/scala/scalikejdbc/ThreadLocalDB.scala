@@ -31,7 +31,7 @@ object ThreadLocalDB {
    * @return
    */
   def create(conn: => Connection): DB = {
-    _db.value = DB(conn)
+    _db.value = DB(conn, ConnectionPool().settings)
     _db.value
   }
 
